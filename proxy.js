@@ -58,6 +58,8 @@ function proxyServer(option){
         generateRootCA      = option.generateRootCA !== false, // default is true
         autoTrust           = !!option.autoTrust;
 
+    this.cacheDirName = 'cache_' + Date.now();
+
     if(ifSilent){
         logUtil.setPrintStatus(false);
     }
@@ -82,20 +84,18 @@ function proxyServer(option){
     requestHandler.setRules(proxyRules); //TODO : optimize calling for set rule
     self.httpProxyServer = null;
 
+    var recorderOptions = {
+        cacheDirName: self.cacheDirName
+    };
+
+    if(option.dbFile) {
+        recorderOptions.filename = option.dbFile;
+    }
+
+    GLOBAL.recorder = new Recorder(recorderOptions);
+
     async.series(
         [
-            //clear cache dir, prepare recorder
-            function(callback){
-                util.clearCacheDir(function(){
-                    if(option.dbFile){
-                        GLOBAL.recorder = new Recorder({filename: option.dbFile});
-                    }else{
-                        GLOBAL.recorder = new Recorder();
-                    }
-                    callback();
-                });
-            },
-
             //creat proxy server
             function(callback){
                 if(proxyType == T_TYPE_HTTPS){
@@ -157,15 +157,37 @@ function proxyServer(option){
 
             //server status manager
             function(callback){
+                // process.stdin.resume();// so the program will not close instantly
 
-                process.on("exit",function(code){
-                    logUtil.printLog('AnyProxy is about to exit with code: ' + code, logUtil.T_ERR);
+                function exitHandler() {
+                    logUtil.printLog('\nAnyProxy is about to exit');
+                    util.clearCacheDir(self.cacheDirName, function() {
+                      process.exit();
+                    });
+                }
+
+                if (process.platform === 'win32') {
+                    var rl = require('readline').createInterface({
+                        input: process.stdin,
+                        output: process.stdout,
+                    });
+
+                    rl.on('SIGINT', function() {
+                        process.emit('SIGINT');
+                    });
+                }
+
+                process.on('SIGINT', exitHandler);
+
+                process.on('exit', function() {
                     process.exit();
                 });
 
                 process.on("uncaughtException",function(err){
                     logUtil.printLog('Caught exception: ' + (err.stack || err), logUtil.T_ERR);
-                    process.exit();
+                    util.clearCacheDir(self.cacheDirName, function() {
+                        process.exit();
+                    });
                 });
 
                 callback(null);
