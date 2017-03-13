@@ -1,5 +1,5 @@
 try{
-    GLOBAL.util = require('./lib/util');
+    global.util = require('./lib/util');
 }catch(e){}
 
 var http = require('http'),
@@ -78,7 +78,7 @@ function proxyServer(option){
 
     if(option.throttle){
         logUtil.printLog("throttle :" + option.throttle + "kb/s");
-        GLOBAL._throttle = new ThrottleGroup({rate: 1024 * parseInt(option.throttle) }); // rate - byte/sec
+        global._throttle = new ThrottleGroup({rate: 1024 * parseInt(option.throttle) }); // rate - byte/sec
     }
 
     requestHandler.setRules(proxyRules); //TODO : optimize calling for set rule
@@ -92,7 +92,7 @@ function proxyServer(option){
         recorderOptions.filename = option.dbFile;
     }
 
-    GLOBAL.recorder = new Recorder(recorderOptions);
+    global.recorder = new Recorder(recorderOptions);
 
     async.series(
         [
